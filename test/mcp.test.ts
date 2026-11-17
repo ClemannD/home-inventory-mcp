@@ -107,6 +107,12 @@ describe("OAuth for MCP clients", () => {
 });
 
 describe("tools", () => {
+  it("advertises the app icon in its server info", async () => {
+    const res = await rpc("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "test", version: "1" } });
+    const icons = res.result.serverInfo.icons as { src: string }[];
+    expect(icons.map((i) => i.src)).toContain("https://home.example.com/icon-512.png");
+  });
+
   it("lists the tools with read-only and destructive hints", async () => {
     const res = await rpc("tools/list", {});
     const tools = res.result.tools as { name: string; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } }[];

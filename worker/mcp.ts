@@ -34,6 +34,16 @@ const ok = (value: unknown): ToolResult => ({ content: [{ type: "text", text: JS
 const error = (message: string): ToolResult => ({ content: [{ type: "text", text: message }], isError: true });
 
 const base = (e: Env): string => (e.PUBLIC_URL || "").replace(/\/$/, "");
+/** Server icons for MCP clients. Icon URLs must be absolute, so there are none without PUBLIC_URL. */
+const icons = (e: Env) =>
+  base(e)
+    ? [
+        { src: `${base(e)}/icon-512.png`, mimeType: "image/png", sizes: ["512x512"] },
+        { src: `${base(e)}/icon-192.png`, mimeType: "image/png", sizes: ["192x192"] },
+        { src: `${base(e)}/favicon.svg`, mimeType: "image/svg+xml", sizes: ["any"] }
+      ]
+    : undefined;
+
 const urlFor = (e: Env, id: string): string => {
   if (id.startsWith("itm_")) return `${base(e)}/items/${id}`;
   if (id.startsWith("ent_")) return `${base(e)}/entries/${id}`;
@@ -94,7 +104,7 @@ const buildServer = async (): Promise<McpServer> => {
   const props = getMcpAuthContext()?.props as { userId?: string } | undefined;
   const user = props?.userId ? await userById(e, props.userId) : null;
   const today = todayIn(timezone(e));
-  const server = new McpServer({ name: appName(e), version: VERSION });
+  const server = new McpServer({ name: appName(e), version: VERSION, icons: icons(e) });
 
   /** Every tool runs as the member who connected. A removed member's grant stops working. */
   const tool = <T>(fn: (args: T) => Promise<ToolResult>) => async (args: T): Promise<ToolResult> => {

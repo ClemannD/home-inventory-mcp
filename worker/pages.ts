@@ -47,7 +47,9 @@ export const page = (title: string, body: string, script = ""): string => `<!doc
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" />
+<link rel="icon" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="manifest" href="/manifest.webmanifest" />
 <title>${escapeHtml(title)}</title>
 <script>${THEME_SCRIPT}</script>
@@ -56,7 +58,8 @@ export const page = (title: string, body: string, script = ""): string => `<!doc
 <body><main>${body}</main>${script ? `<script>${script}</script>` : ""}</body>
 </html>`;
 
-const MARK = `<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="currentColor"/><path d="M18 30 32 18l14 12v15a2 2 0 0 1-2 2H20a2 2 0 0 1-2-2Z" fill="none" stroke="var(--bg)" stroke-width="4" stroke-linejoin="round"/><path d="M27 47V36h10v11" fill="none" stroke="var(--bg)" stroke-width="4" stroke-linejoin="round"/></svg>`;
+/** Same drawing as public/favicon.svg and src/components/icons.tsx Mark, in the theme's colors. */
+const MARK = `<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="12" fill="currentColor"/><path d="M41 16.2a.9.9 0 0 1 .9-.9h3.4a.9.9 0 0 1 .9.9v11.3L41 23.2Z" fill="var(--bg)"/><path d="M13.4 30.9 32 15.7l18.6 15.2M17.4 28.3v21.5h29.2V28.3" fill="none" stroke="var(--bg)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M26.1 31.9h5.1l-.6 4h-7.4ZM32.8 31.9h5.1l2.9 4h-7.4Z" fill="var(--bg)"/><rect x="23.2" y="37" width="17.6" height="9.2" rx=".9" fill="var(--bg)"/><path d="M30.2 37h3.6v4.2L32 40.1l-1.8 1.1Z" fill="#d9a441"/></svg>`;
 
 const brand = (appName: string): string => `<div class="brand">${MARK}${escapeHtml(appName)}</div>`;
 

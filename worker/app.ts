@@ -17,7 +17,7 @@ import { fail, harden, redirect } from "./http";
 import { handleAuthorize } from "./oauth";
 import { handleUploadLink } from "./upload-link";
 
-const PUBLIC_ASSETS = new Set(["/favicon.svg", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"]);
+const PUBLIC_ASSETS = new Set(["/favicon.ico", "/favicon.svg","/apple-touch-icon.png", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"]);
 
 export const app: ExportedHandler<Env> = {
   async fetch(request, env, ctx): Promise<Response> {

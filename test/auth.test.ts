@@ -23,7 +23,9 @@ describe("session gate", () => {
     const login = await call("GET", "/login");
     expect(login.status).toBe(200);
     expect(await login.text()).toContain("Sign in with a passkey");
-    expect((await call("GET", "/manifest.webmanifest")).status).toBe(200);
+    for (const path of ["/manifest.webmanifest", "/favicon.ico", "/favicon.svg", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png"]) {
+      expect((await call("GET", path)).status, path).toBe(200);
+    }
   });
 
   it("publishes OAuth metadata for MCP clients", async () => {
