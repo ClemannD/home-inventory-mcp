@@ -387,7 +387,7 @@ export const ConnectPage = () => {
         {!connections.data ? (
           <Loading />
         ) : connections.data.length === 0 ? (
-          <p className="list-empty">Nothing connected yet.</p>
+          <p className="list-empty">Nothing connected yet. A new connection can take up to a minute to show up here.</p>
         ) : (
           <div className="list">
             {connections.data.map((c) => (
