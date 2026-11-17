@@ -20,17 +20,22 @@ const form = (...files: File[]) => {
   return data;
 };
 
-/** Posts the form the way a browser does, without a session cookie. */
-const submit = async (token: string, data: FormData) => {
+const BROWSER = "text/html,application/xhtml+xml,*/*;q=0.8";
+
+/** Posts the form without a session cookie, as a browser by default or as a script (curl's Accept). */
+const submit = async (token: string, data: FormData, accept = BROWSER) => {
   const req = new Request(`https://home.example.com/u/${token}`, { method: "POST", body: data });
   const body = await req.arrayBuffer();
-  return call("POST", `/u/${token}`, { raw: body, headers: { "content-type": req.headers.get("content-type")!, "content-length": String(body.byteLength) } });
+  return call("POST", `/u/${token}`, {
+    raw: body,
+    headers: { "content-type": req.headers.get("content-type")!, "content-length": String(body.byteLength), accept }
+  });
 };
 
 describe("upload links", () => {
   it("shows the form without a session and saves every file in one submission", async () => {
     const { token } = await createUploadLink(env, { itemId: item.id }, "manual", null);
-    const page = await call("GET", `/u/${token}`);
+    const page = await call("GET", `/u/${token}`, { headers: { accept: BROWSER } });
     expect(page.status).toBe(200);
     expect(await page.text()).toContain("Furnace");
 
@@ -46,6 +51,19 @@ describe("upload links", () => {
       ["manual.pdf", "manual"],
       ["label.jpg", "manual"]
     ]);
+  });
+
+  it("answers scripts with JSON", async () => {
+    const { token } = await createUploadLink(env, { itemId: item.id }, "receipt", null);
+    const res = await submit(token, form(new File(["%PDF-1.4 invoice"], "invoice.pdf", { type: "application/pdf" })), "*/*");
+    expect(res.status).toBe(201);
+    const body = await jsonOf<{ saved: { name: string; kind: string }[]; target: { id: string } }>(res);
+    expect(body.saved.map((f) => [f.name, f.kind])).toEqual([["invoice.pdf", "receipt"]]);
+    expect(body.target.id).toBe(item.id);
+
+    const again = await submit(token, form(new File(["x"], "x.txt", { type: "text/plain" })), "*/*");
+    expect(again.status).toBe(410);
+    expect((await jsonOf<{ error: string }>(again)).error).toContain("already used");
   });
 
   it("refuses a second submission", async () => {

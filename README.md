@@ -90,7 +90,8 @@ Everything runs in one Cloudflare Worker:
    ```
 
 5. To forward receipts, add an Email Routing rule that sends your ingest address (for example
-   `inventory@example.com`) to the Worker.
+   `inventory@example.com`) to the Worker, and turn on subaddressing under Email Routing →
+   Settings so plus addresses like `inventory+note@example.com` reach it too.
 
 6. Open the site and sign in with the owner address. You'll get a code by email. Then:
    - add a passkey under **Passkeys**, so you don't need codes;
@@ -125,7 +126,8 @@ Assistants can't pass a file you attach in chat to an MCP tool, so there are two
 
 - `create_upload_link` returns a link for one item or entry. You open it on any device and pick
   files or take a photo, without signing in. It accepts one upload (several files are fine) and
-  expires after an hour.
+  expires after an hour. An agent that has the file and network access to your domain can post it
+  itself (`curl -F file=@invoice.pdf <link>`); scripts get JSON back.
 - `upload_file` takes a file's bytes as base64, up to 10 MB. It's for clients that have the
   original file, such as an agent reading from disk. The server checks the first bytes against the
   declared type, so a file the model tried to rebuild from what it saw is rejected rather than
@@ -139,8 +141,17 @@ email body is saved as the entry's text, and attachments are saved as its files.
 - Only senders on the allowlist are accepted. Everything else is rejected. The check uses the
   envelope sender, so forward from the address you allowed. Manage the list in **Email inbox** or
   ask your assistant.
-- Add the entry type after a plus to file it as something else: `inventory+note@example.com`,
-  `inventory+service@example.com`. Unknown types become receipts.
+- The part after a plus says where the message goes:
+  - `inventory+note@example.com`, `inventory+service@example.com`: a new entry of that type.
+    Unknown types become receipts.
+  - `inventory+itm_…@example.com`: a new receipt linked to that item.
+  - `inventory+ent_…@example.com`: added to that entry. Attachments become its files; a message
+    without attachments is appended to its notes.
+
+  Each item and entry page shows its address, and the MCP tools return it as `email_to`, so an
+  assistant with access to your mail can forward an invoice straight to the right record. Plus
+  addresses only reach the Worker with subaddressing turned on: Email Routing → Settings, or
+  `support_subaddress` in the Email Routing API.
 
 ## Adding a record type
 

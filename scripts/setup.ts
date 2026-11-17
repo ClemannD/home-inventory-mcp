@@ -206,6 +206,7 @@ Done. Next:
   1. Enable Email Sending for ${sender.split("@")[1]} (Cloudflare dashboard → Email Service, or \`npx wrangler email sending enable ${sender.split("@")[1]}\`).
   2. Deploy: npm run deploy
   3. Route ${ingest} to the Worker: Email Routing → Routing rules → Send to a Worker → ${worker}.
+     Then turn on subaddressing (Email Routing → Settings) so plus addresses reach it too.
   4. Open https://${domain} and sign in as ${owner} with an email code.`);
 };
 

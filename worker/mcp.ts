@@ -16,6 +16,7 @@ import { userById } from "./auth/users";
 import { createEntry, deleteEntry, entryCounts, getEntry, listEntries, updateEntry } from "./catalog/entries";
 import { addLink, checkSignature, checkTarget, deleteFile, readText, SNIFFABLE_TYPES, storeFile } from "./catalog/files";
 import { createUploadLink } from "./catalog/uploads";
+import { ingestAddressFor } from "./ingest";
 import { createItem, deleteItem, facets, getItem, listItems, updateItem } from "./catalog/items";
 import { search } from "./catalog/search";
 import { addSender, listSenders, removeSender } from "./catalog/senders";
@@ -136,6 +137,7 @@ const buildServer = async (): Promise<McpServer> => {
         notes: [
           "Items are physical things in the home. Entries are other records (receipts, service history, notes) and can link to an item.",
           "To attach a file the user has (a receipt or manual they shared with you), call create_upload_link and give them the link. Use upload_file only when you have the file's original bytes.",
+          "Each item and entry has an email_to address. Forwarding an email there (for example an invoice from the user's mailbox) files it on that record with its attachments. The sending address must be on the email_senders allowlist.",
           "When more than one item could match what the user said, ask which one they mean."
         ]
       });
@@ -171,11 +173,15 @@ const buildServer = async (): Promise<McpServer> => {
     tool(async ({ id }: { id: string }) => {
       if (id.startsWith("itm_")) {
         const item = await getItem(e, id, today);
-        return item ? ok({ id, title: item.name, url: urlFor(e, id), text: JSON.stringify(item), record: item }) : error(`No item ${id}.`);
+        return item
+          ? ok({ id, title: item.name, url: urlFor(e, id), email_to: ingestAddressFor(e.INGEST_ADDRESS, id), text: JSON.stringify(item), record: item })
+          : error(`No item ${id}.`);
       }
       if (id.startsWith("ent_")) {
         const entry = await getEntry(e, id);
-        return entry ? ok({ id, title: entry.title, url: urlFor(e, id), text: JSON.stringify(entry), record: entry }) : error(`No entry ${id}.`);
+        return entry
+          ? ok({ id, title: entry.title, url: urlFor(e, id), email_to: ingestAddressFor(e.INGEST_ADDRESS, id), text: JSON.stringify(entry), record: entry })
+          : error(`No entry ${id}.`);
       }
       if (id.startsWith("fil_")) {
         const slice = await readText(e, id, 0, 20_000);
@@ -359,7 +365,7 @@ const buildServer = async (): Promise<McpServer> => {
     {
       title: "Create an upload link",
       description:
-        "Returns a one-time link where the user can upload files (PDFs, photos, scans) to an item or entry from any device, without signing in. Use it whenever the user wants to attach a file they have, such as a receipt or manual they shared in this conversation, because you can't pass their attachment to a tool. Give the user the link. It accepts one upload of one or more files and expires after an hour. To file a receipt that isn't in the inventory yet, create it with save_entry first and pass its id.",
+        "Returns a one-time link where the user can upload files (PDFs, photos, scans) to an item or entry from any device, without signing in. Use it whenever the user wants to attach a file they have, such as a receipt or manual they shared in this conversation, because you can't pass their attachment to a tool. Give the user the link. It accepts one upload of one or more files and expires after an hour. If you have the file in a sandbox that can reach this server, you can upload it yourself with the returned script_upload command, which answers in JSON. If the file came by email, forwarding that email to the returned email_to address files it on the same record. To file a receipt that isn't in the inventory yet, create it with save_entry first and pass its id.",
       inputSchema: uploadLinkInput,
       annotations: WRITE
     },
@@ -367,7 +373,14 @@ const buildServer = async (): Promise<McpServer> => {
       const problem = await oneTarget(a);
       if (problem) return error(problem);
       const { token, expiresAt } = await createUploadLink(e, { itemId: a.item_id ?? null, entryId: a.entry_id ?? null }, a.kind, user!.id);
-      return ok({ upload_url: `${base(e)}/u/${token}`, expires_at: new Date(expiresAt).toISOString(), uses: 1 });
+      const id = a.item_id ?? a.entry_id!;
+      return ok({
+        upload_url: `${base(e)}/u/${token}`,
+        expires_at: new Date(expiresAt).toISOString(),
+        uses: 1,
+        script_upload: `curl -F file=@<path> ${base(e)}/u/${token}`,
+        email_to: ingestAddressFor(e.INGEST_ADDRESS, id)
+      });
     })
   );
 

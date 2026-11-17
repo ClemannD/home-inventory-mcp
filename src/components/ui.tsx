@@ -72,3 +72,15 @@ export const Loading = () => (
 
 /** "" → null, for optional text inputs. */
 export const orNull = (s: string): string | null => (s.trim() ? s.trim() : null);
+
+/** The ingest address that files forwarded mail on record `id`, shown so it can be copied. */
+export const EmailTo = ({ ingest, id }: { ingest: string | null; id: string }) => {
+  if (!ingest?.includes("@")) return null;
+  const address = ingest.replace("@", `+${id}@`);
+  return (
+    <p className="muted" style={{ fontSize: 12, marginTop: 12, overflowWrap: "anywhere" }}>
+      Forward an email to <span style={{ fontFamily: "var(--mono)", color: "var(--text)", userSelect: "all" }}>{address}</span> to file it here with its
+      attachments.
+    </p>
+  );
+};

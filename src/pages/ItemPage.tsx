@@ -7,7 +7,7 @@ import { EntryForm, ExtraFields, WarrantyForm } from "../components/forms";
 import { ArchiveIcon, EntryTypeIcon, PencilIcon, PlusIcon, ShieldIcon, TrashIcon } from "../components/icons";
 import { ItemForm } from "../components/ItemForm";
 import { Topbar, useMe } from "../components/Shell";
-import { Dialog, ErrorNotice, Loading, WarrantyPill } from "../components/ui";
+import { Dialog, EmailTo, ErrorNotice, Loading, WarrantyPill } from "../components/ui";
 import { date, money, titleCase } from "../format";
 import { navigate } from "../router";
 
@@ -201,6 +201,7 @@ export const ItemPage = ({ id }: { id: string }) => {
             <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
               Archive items you no longer have but want to remember. Delete removes everything.
             </p>
+            <EmailTo ingest={me.ingest_address} id={id} />
           </aside>
         </div>
       </div>

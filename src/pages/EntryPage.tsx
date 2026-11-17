@@ -6,7 +6,7 @@ import { Attachments } from "../components/Attachments";
 import { EntryForm } from "../components/forms";
 import { PencilIcon, TrashIcon } from "../components/icons";
 import { Topbar, useMe } from "../components/Shell";
-import { Dialog, ErrorNotice, Loading } from "../components/ui";
+import { Dialog, EmailTo, ErrorNotice, Loading } from "../components/ui";
 import { date, money } from "../format";
 import { navigate } from "../router";
 
@@ -127,6 +127,7 @@ export const EntryPage = ({ id }: { id: string }) => {
             <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
               Deletes this record and its files. Delete receipts once you no longer need them.
             </p>
+            <EmailTo ingest={me.ingest_address} id={id} />
           </aside>
         </div>
       </div>

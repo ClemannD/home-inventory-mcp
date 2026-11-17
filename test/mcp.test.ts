@@ -165,6 +165,8 @@ describe("tools", () => {
     const item = (await tool("save_item", { name: "Water heater" })).data;
     const link = (await tool("create_upload_link", { item_id: item.id, kind: "manual" })).data;
     expect(link.upload_url).toMatch(/^https:\/\/home\.example\.com\/u\/[A-Za-z0-9_-]{32}$/);
+    expect(link.email_to).toBe(`inventory+${item.id}@example.com`);
+    expect(link.script_upload).toBe(`curl -F file=@<path> ${link.upload_url}`);
     const page = await call("GET", new URL(link.upload_url).pathname);
     expect(await page.text()).toContain("Water heater");
 

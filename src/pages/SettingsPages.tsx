@@ -298,7 +298,8 @@ export const EmailPage = () => {
           </h2>
           <CopyField value={me.ingest_address} label="Ingest address" />
           <p className="muted" style={{ fontSize: 13, marginTop: 10 }}>
-            Messages become receipts. To file one as something else, add the type after a plus: {local}+note@{domain} or {local}+service@{domain}.
+            Messages become receipts. To file one as something else, add the type after a plus: {local}+note@{domain} or {local}+service@{domain}. To
+            add to a record you already have, use the address shown on its page, like {local}+itm_…@{domain}.
           </p>
         </div>
       ) : (
