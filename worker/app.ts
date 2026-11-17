@@ -4,6 +4,7 @@
  *
  *   /login, /auth/*     sign-in (worker/auth/routes.ts), no session needed
  *   /authorize          MCP client consent (worker/oauth.ts)
+ *   /u/:token           one-time upload link (worker/upload-link.ts), the token is the credential
  *   install metadata    manifest and icons, public
  *   /api/*              REST API for the UI, needs a session (401 without)
  *   everything else     the SPA, needs a session (redirect to /login without)
@@ -14,6 +15,7 @@ import { currentSession, sessionCookie } from "./auth/session";
 import type { Env } from "./env";
 import { fail, harden, redirect } from "./http";
 import { handleAuthorize } from "./oauth";
+import { handleUploadLink } from "./upload-link";
 
 const PUBLIC_ASSETS = new Set(["/favicon.svg", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"]);
 
@@ -25,6 +27,9 @@ export const app: ExportedHandler<Env> = {
     if (auth) return auth;
 
     if (url.pathname === "/authorize") return handleAuthorize(request, env, url);
+
+    const upload = await handleUploadLink(request, env, ctx, url);
+    if (upload) return upload;
 
     if ((request.method === "GET" || request.method === "HEAD") && PUBLIC_ASSETS.has(url.pathname)) {
       return harden(await env.ASSETS.fetch(request));

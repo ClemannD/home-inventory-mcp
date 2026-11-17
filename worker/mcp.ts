@@ -11,10 +11,11 @@ import { createMcpHandler, getMcpAuthContext } from "agents/mcp/server";
 import { z } from "zod";
 import { today as todayIn } from "../shared/dates";
 import { ENTRY_TYPES } from "../shared/entry-types";
-import { emailAddress, entryPatch, itemPatch, linkInput, warrantyInput, warrantyPatch } from "../shared/schemas";
+import { emailAddress, entryPatch, fileKind, itemPatch, linkInput, warrantyInput, warrantyPatch } from "../shared/schemas";
 import { userById } from "./auth/users";
 import { createEntry, deleteEntry, entryCounts, getEntry, listEntries, updateEntry } from "./catalog/entries";
-import { addLink, checkTarget, deleteFile, readText } from "./catalog/files";
+import { addLink, checkSignature, checkTarget, deleteFile, readText, SNIFFABLE_TYPES, storeFile } from "./catalog/files";
+import { createUploadLink } from "./catalog/uploads";
 import { createItem, deleteItem, facets, getItem, listItems, updateItem } from "./catalog/items";
 import { search } from "./catalog/search";
 import { addSender, listSenders, removeSender } from "./catalog/senders";
@@ -45,6 +46,42 @@ const listItemsInput = z.object({
   warranty: z.enum(["active", "expiring", "expired", "lifetime", "not_started", "none"]).optional(),
   include_archived: z.boolean().default(false)
 });
+
+/** Largest file accepted by upload_file, in bytes. Larger files go through an upload link. */
+const MAX_INLINE_FILE_BYTES = 10 * 1024 * 1024;
+
+const target = {
+  item_id: z.string().max(40).optional().describe("Attach to this item"),
+  entry_id: z.string().max(40).optional().describe("Or attach to this entry (receipt, note, …)")
+};
+
+const uploadLinkInput = z.object({
+  ...target,
+  kind: fileKind.default("document").describe("What the files are: photo, manual, receipt, warranty or document")
+});
+
+const uploadFileInput = z.object({
+  ...target,
+  name: z.string().trim().min(1).max(200).describe("File name, e.g. 'invoice.pdf'"),
+  content_type: z.enum(SNIFFABLE_TYPES as [string, ...string[]]),
+  data_base64: z
+    .string()
+    .min(4)
+    .max(Math.ceil(MAX_INLINE_FILE_BYTES / 3) * 4 + 1024)
+    .describe("The file's exact bytes, base64-encoded"),
+  kind: fileKind.default("document")
+});
+
+const decodeBase64 = (data: string): Uint8Array | undefined => {
+  try {
+    const bin = atob(data.replace(/\s+/g, ""));
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch {
+    return undefined;
+  }
+};
 
 const entryTypesText = ENTRY_TYPES.map(
   (t) => `- ${t.id}: ${t.description}${t.fields.length ? ` Fields: ${t.fields.map((f) => `${f.key} (${f.kind})`).join(", ")}.` : ""}`
@@ -98,7 +135,7 @@ const buildServer = async (): Promise<McpServer> => {
         email_ingest_address: e.INGEST_ADDRESS || null,
         notes: [
           "Items are physical things in the home. Entries are other records (receipts, service history, notes) and can link to an item.",
-          "Files (photos, manuals, receipts) can't be uploaded through this connection. Give the user the item or entry url; the web app has upload and scan buttons.",
+          "To attach a file the user has (a receipt or manual they shared with you), call create_upload_link and give them the link. Use upload_file only when you have the file's original bytes.",
           "When more than one item could match what the user said, ask which one they mean."
         ]
       });
@@ -308,6 +345,59 @@ const buildServer = async (): Promise<McpServer> => {
       const { file, extract } = await addLink(e, input, user!.id);
       waitUntil(extract());
       return ok({ ...file, url: file.url, open_url: urlFor(e, file.id) });
+    })
+  );
+
+  /** Exactly one of item_id and entry_id, and it must exist. */
+  const oneTarget = async (a: { item_id?: string | undefined; entry_id?: string | undefined }): Promise<string | undefined> => {
+    if (!a.item_id === !a.entry_id) return "Pass exactly one of item_id or entry_id. To file a new receipt, create it with save_entry first.";
+    return checkTarget(e, { itemId: a.item_id ?? null, entryId: a.entry_id ?? null });
+  };
+
+  server.registerTool(
+    "create_upload_link",
+    {
+      title: "Create an upload link",
+      description:
+        "Returns a one-time link where the user can upload files (PDFs, photos, scans) to an item or entry from any device, without signing in. Use it whenever the user wants to attach a file they have, such as a receipt or manual they shared in this conversation, because you can't pass their attachment to a tool. Give the user the link. It accepts one upload of one or more files and expires after an hour. To file a receipt that isn't in the inventory yet, create it with save_entry first and pass its id.",
+      inputSchema: uploadLinkInput,
+      annotations: WRITE
+    },
+    tool(async (a: z.infer<typeof uploadLinkInput>) => {
+      const problem = await oneTarget(a);
+      if (problem) return error(problem);
+      const { token, expiresAt } = await createUploadLink(e, { itemId: a.item_id ?? null, entryId: a.entry_id ?? null }, a.kind, user!.id);
+      return ok({ upload_url: `${base(e)}/u/${token}`, expires_at: new Date(expiresAt).toISOString(), uses: 1 });
+    })
+  );
+
+  server.registerTool(
+    "upload_file",
+    {
+      title: "Upload a file from its bytes",
+      description: `Stores a file on an item or entry from its exact bytes, base64-encoded. Only use it when you have the file's original bytes, for example a file read from disk. Never rebuild a file from text or page images you were shown: the server rejects data that doesn't start with the declared type's signature. Up to ${MAX_INLINE_FILE_BYTES / 1024 / 1024} MB. If you don't have the bytes, use create_upload_link instead.`,
+      inputSchema: uploadFileInput,
+      annotations: WRITE
+    },
+    tool(async (a: z.infer<typeof uploadFileInput>) => {
+      const problem = await oneTarget(a);
+      if (problem) return error(problem);
+      const bytes = decodeBase64(a.data_base64);
+      if (!bytes?.length) return error("data_base64 isn't valid base64.");
+      if (bytes.length > MAX_INLINE_FILE_BYTES) return error(`The file is over ${MAX_INLINE_FILE_BYTES / 1024 / 1024} MB. Use create_upload_link instead.`);
+      const bad = checkSignature(a.content_type, bytes);
+      if (bad) return error(`Not saved: ${bad}. If you don't have the original file, use create_upload_link.`);
+      const { file, extract } = await storeFile(e, {
+        itemId: a.item_id ?? null,
+        entryId: a.entry_id ?? null,
+        body: bytes,
+        name: a.name,
+        contentType: a.content_type,
+        kind: a.kind,
+        userId: user!.id
+      });
+      waitUntil(extract());
+      return ok({ ...file, open_url: urlFor(e, file.id) });
     })
   );
 

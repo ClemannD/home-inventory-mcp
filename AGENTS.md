@@ -10,6 +10,7 @@ worker/index.ts        entry: OAuthProvider in front of fetch; email and schedul
 worker/app.ts          non-OAuth routes: sign-in, /authorize, /api (session), the SPA (session)
 worker/mcp.ts          MCP tools (stateless createMcpHandler, one server per request)
 worker/oauth.ts        /authorize consent page for MCP clients
+worker/upload-link.ts  /u/:token one-time upload page (no session; the token is the credential)
 worker/auth/           email codes, passkeys, sessions, members (all in D1)
 worker/catalog/        all SQL: items, warranties, entries, files, search index, email senders
 worker/api/routes.ts   REST API for the web app

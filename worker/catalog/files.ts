@@ -58,6 +58,38 @@ export const cleanName = (raw: string): string => {
 export const cleanType = (raw: string | null | undefined): string =>
   raw && /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(raw.split(";")[0]!.trim()) ? raw.split(";")[0]!.trim().toLowerCase() : "application/octet-stream";
 
+const startsWith = (bytes: Uint8Array, prefix: readonly number[], offset = 0): boolean => prefix.every((b, i) => bytes[offset + i] === b);
+const ascii = (s: string): number[] => [...s].map((c) => c.charCodeAt(0));
+
+/** Leading bytes each accepted type must have. */
+const SIGNATURES: Record<string, (b: Uint8Array) => boolean> = {
+  "application/pdf": (b) => startsWith(b, ascii("%PDF-")),
+  "image/jpeg": (b) => startsWith(b, [0xff, 0xd8, 0xff]),
+  "image/png": (b) => startsWith(b, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  "image/gif": (b) => startsWith(b, ascii("GIF8")),
+  "image/webp": (b) => startsWith(b, ascii("RIFF")) && startsWith(b, ascii("WEBP"), 8),
+  "image/heic": (b) => startsWith(b, ascii("ftyp"), 4),
+  "image/heif": (b) => startsWith(b, ascii("ftyp"), 4),
+  "image/avif": (b) => startsWith(b, ascii("ftyp"), 4),
+  "text/plain": (b) => !b.includes(0),
+  "text/csv": (b) => !b.includes(0),
+  "text/markdown": (b) => !b.includes(0)
+};
+
+export const SNIFFABLE_TYPES = Object.keys(SIGNATURES);
+
+/**
+ * Checks that `bytes` start the way `contentType` requires. Returns an error
+ * message, or undefined when they match. A file rebuilt from its rendered
+ * content instead of copied byte for byte usually fails this.
+ */
+export const checkSignature = (contentType: string, bytes: Uint8Array): string | undefined => {
+  const check = SIGNATURES[contentType];
+  if (!check) return `${contentType} isn't accepted. Use one of: ${SNIFFABLE_TYPES.join(", ")}`;
+  if (!check(bytes)) return `the data isn't a valid ${contentType} file (its first bytes are wrong)`;
+  return undefined;
+};
+
 export const listFiles = async (env: Env, where: { itemId?: string; entryId?: string }): Promise<FileInfo[]> => {
   const rows = where.itemId
     ? await all<FileRow>(env.DB, `SELECT ${COLUMNS} FROM files WHERE item_id = ? ORDER BY created_at`, where.itemId)

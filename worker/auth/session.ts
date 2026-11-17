@@ -77,12 +77,13 @@ export const endSession = async (env: Env, token: string): Promise<void> => {
   await run(env.DB, "DELETE FROM sessions WHERE hash = ?", await sha256(token));
 };
 
-/** Deletes expired sessions, challenges and sign-in codes. Run from the daily cron. */
+/** Deletes expired sessions, challenges, sign-in codes and upload links. Run from the daily cron. */
 export const pruneAuth = async (env: Env): Promise<void> => {
   const now = Date.now();
   await env.DB.batch([
     env.DB.prepare("DELETE FROM sessions WHERE last_used_at < ?").bind(now - SESSION_IDLE_MS),
     env.DB.prepare("DELETE FROM challenges WHERE expires_at < ?").bind(now),
-    env.DB.prepare("DELETE FROM sign_in_codes WHERE expires_at < ? AND window_start < ?").bind(now, now - 60 * 60 * 1000)
+    env.DB.prepare("DELETE FROM sign_in_codes WHERE expires_at < ? AND window_start < ?").bind(now, now - 60 * 60 * 1000),
+    env.DB.prepare("DELETE FROM upload_links WHERE expires_at < ?").bind(now - 24 * 60 * 60 * 1000)
   ]);
 };

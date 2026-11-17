@@ -115,12 +115,21 @@ see and disconnect their connections in the same settings page. Removing a membe
 connections working.
 
 The tools cover searching, reading full records and file text, creating and updating items,
-warranties and entries, attaching links (optionally downloading a copy), deleting records, and
-managing the email allowlist. Read tools are marked read-only, so clients can skip asking you before
-they run. `delete` is marked destructive.
+warranties and entries, attaching links (optionally downloading a copy), uploading files, deleting
+records, and managing the email allowlist. Read tools are marked read-only, so clients can skip
+asking you before they run. `delete` is marked destructive.
 
-Files can't be uploaded through MCP: assistants don't pass your attachments to MCP tools. Records
-returned by the tools include a link to the web app, where you can upload or scan.
+### Files
+
+Assistants can't pass a file you attach in chat to an MCP tool, so there are two ways in:
+
+- `create_upload_link` returns a link for one item or entry. You open it on any device and pick
+  files or take a photo, without signing in. It accepts one upload (several files are fine) and
+  expires after an hour.
+- `upload_file` takes a file's bytes as base64, up to 10 MB. It's for clients that have the
+  original file, such as an agent reading from disk. The server checks the first bytes against the
+  declared type, so a file the model tried to rebuild from what it saw is rejected rather than
+  saved broken.
 
 ## Email inbox
 

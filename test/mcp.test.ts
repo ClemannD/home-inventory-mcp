@@ -112,7 +112,23 @@ describe("tools", () => {
     const tools = res.result.tools as { name: string; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } }[];
     const byName = new Map(tools.map((t) => [t.name, t]));
     expect([...byName.keys()].sort()).toEqual(
-      ["add_link", "delete", "email_senders", "fetch", "list_entries", "list_items", "list_warranties", "overview", "read_file", "save_entry", "save_item", "save_warranty", "search"].sort()
+      [
+        "add_link",
+        "create_upload_link",
+        "delete",
+        "email_senders",
+        "fetch",
+        "list_entries",
+        "list_items",
+        "list_warranties",
+        "overview",
+        "read_file",
+        "save_entry",
+        "save_item",
+        "save_warranty",
+        "search",
+        "upload_file"
+      ].sort()
     );
     expect(byName.get("search")!.annotations?.readOnlyHint).toBe(true);
     expect(byName.get("delete")!.annotations?.destructiveHint).toBe(true);
@@ -143,6 +159,29 @@ describe("tools", () => {
 
     expect((await tool("delete", { id: receipt.id })).data).toEqual({ deleted: receipt.id });
     expect((await tool("fetch", { id: receipt.id })).isError).toBe(true);
+  });
+
+  it("creates a one-time upload link for an item or entry", async () => {
+    const item = (await tool("save_item", { name: "Water heater" })).data;
+    const link = (await tool("create_upload_link", { item_id: item.id, kind: "manual" })).data;
+    expect(link.upload_url).toMatch(/^https:\/\/home\.example\.com\/u\/[A-Za-z0-9_-]{32}$/);
+    const page = await call("GET", new URL(link.upload_url).pathname);
+    expect(await page.text()).toContain("Water heater");
+
+    expect((await tool("create_upload_link", {})).text).toContain("exactly one of item_id or entry_id");
+    expect((await tool("create_upload_link", { item_id: "itm_nope" })).isError).toBe(true);
+  });
+
+  it("stores a file from base64 only when its bytes match the declared type", async () => {
+    const item = (await tool("save_item", { name: "Garage door opener" })).data;
+    const pdf = btoa("%PDF-1.4\nTo program a remote, hold Learn for 6 seconds.");
+    const saved = (await tool("upload_file", { item_id: item.id, name: "opener.pdf", content_type: "application/pdf", data_base64: pdf, kind: "manual" })).data;
+    expect(saved).toMatchObject({ name: "opener.pdf", kind: "manual", stored: true, content_type: "application/pdf" });
+
+    const fake = await tool("upload_file", { item_id: item.id, name: "fake.pdf", content_type: "application/pdf", data_base64: btoa("Owner's manual, page 1") });
+    expect(fake.isError).toBe(true);
+    expect(fake.text).toContain("first bytes are wrong");
+    expect((await tool("upload_file", { item_id: item.id, name: "x.pdf", content_type: "application/pdf", data_base64: "%%%not base64" })).text).toContain("isn't valid base64");
   });
 
   it("manages the email allowlist", async () => {

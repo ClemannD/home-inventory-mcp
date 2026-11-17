@@ -35,6 +35,9 @@ button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .facts dt{color:var(--subtle)}.facts dd{margin:0;overflow-wrap:anywhere}
 .warn{margin-top:12px;font-size:13px;color:var(--danger)}
 .row{display:flex;gap:8px}.row button{flex:1}
+.files{list-style:none;padding:0;margin:12px 0 0;font-size:13px}
+.files li{padding:6px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+a.button{display:block;text-align:center;margin-top:16px;padding:9px 12px;border-radius:6px;background:var(--text);color:var(--surface);text-decoration:none;font-weight:500}
 [hidden]{display:none!important}
 `;
 
@@ -177,3 +180,52 @@ ${ctx.redirectIsLoopback ? `<p class="warn">This app runs on your own computer. 
 
 export const messagePage = (appName: string, heading: string, text: string): string =>
   page(appName, `${brand(appName)}<h1>${escapeHtml(heading)}</h1><p>${escapeHtml(text)}</p>`);
+
+export interface UploadPageContext {
+  readonly appName: string;
+  readonly targetTitle: string;
+  /** "item" or the entry type's singular name, lower case. */
+  readonly targetLabel: string;
+  readonly expiresAt: number;
+}
+
+/** The page behind a one-time upload link. A plain multipart form, so it works without the SPA. */
+export const uploadPage = (ctx: UploadPageContext): string =>
+  page(
+    `Add files · ${ctx.appName}`,
+    `${brand(ctx.appName)}
+<h1>Add files</h1>
+<p>To <strong style="color:var(--text)">${escapeHtml(ctx.targetTitle)}</strong> (${escapeHtml(ctx.targetLabel)}).</p>
+<form id="form" method="post" enctype="multipart/form-data">
+  <input id="pick" name="file" type="file" multiple accept="application/pdf,image/*,text/plain" hidden />
+  <input id="camera" name="file" type="file" accept="image/*" capture="environment" hidden />
+  <div class="row">
+    <button type="button" id="pick-btn">Choose files</button>
+    <button type="button" id="camera-btn">Take a photo</button>
+  </div>
+  <ul id="files" class="files"></ul>
+  <button id="upload" class="primary" type="submit" disabled>Upload</button>
+</form>
+<p class="msg">This link works once and expires at <span id="expires"></span>.</p>`,
+    `const $ = (id) => document.getElementById(id);
+$("expires").textContent = new Date(${ctx.expiresAt}).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const render = () => {
+  const files = [...$("pick").files, ...$("camera").files];
+  $("files").replaceChildren(...files.map((f) => { const li = document.createElement("li"); li.textContent = f.name + " · " + Math.max(1, Math.round(f.size / 1024)) + " KB"; return li; }));
+  $("upload").disabled = files.length === 0;
+  $("upload").textContent = files.length > 1 ? "Upload " + files.length + " files" : "Upload";
+};
+$("pick-btn").onclick = () => $("pick").click();
+$("camera-btn").onclick = () => $("camera").click();
+$("pick").onchange = render;
+$("camera").onchange = render;
+$("form").onsubmit = () => { $("upload").disabled = true; $("upload").textContent = "Uploading…"; };`
+  );
+
+export const uploadDonePage = (appName: string, count: number, targetTitle: string, openHref: string): string =>
+  page(
+    `Saved · ${appName}`,
+    `${brand(appName)}<h1>Saved ${count} file${count === 1 ? "" : "s"}</h1>
+<p>Attached to ${escapeHtml(targetTitle)}. You can close this page; your assistant can see the files now. This link can't be used again.</p>
+<a class="button" href="${escapeHtml(openHref)}">Open in ${escapeHtml(appName)}</a>`
+  );
