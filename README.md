@@ -204,3 +204,7 @@ Local dev has no Workers AI binding, so files other than plain text aren't conve
 Usage for one household is small. Check Cloudflare's current pricing for Workers, D1, R2, KV, Email
 Service and Workers AI before you deploy. Text extraction from images runs a Workers AI model, so
 it counts toward Workers AI usage.
+
+## License
+
+MIT. See [LICENSE](./LICENSE).

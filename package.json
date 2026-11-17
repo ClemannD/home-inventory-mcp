@@ -1,6 +1,7 @@
 {
   "name": "home-inventory-mcp",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "setup": "tsx scripts/setup.ts",
