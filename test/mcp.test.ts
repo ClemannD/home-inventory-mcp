@@ -71,6 +71,8 @@ describe("OAuth for MCP clients", () => {
     const page = await consent.text();
     expect(page).toContain("Connect Test Assistant?");
     expect(page).toContain("client.example");
+    // Browsers apply form-action to the redirect after Allow, so the client's origin must be listed.
+    expect(consent.headers.get("content-security-policy")).toContain("form-action 'self' https://client.example;");
     const handle = /name="handle" value="([^"]+)"/.exec(page)![1]!;
 
     const approve = await call("POST", "/authorize", {

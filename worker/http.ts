@@ -11,13 +11,17 @@ export const fail = (message: string, status = 400): Response => json({ error: m
 export const redirect = (location: string, status = 302, headers: Record<string, string> = {}): Response =>
   new Response(null, { status, headers: { location, "cache-control": "no-store", ...headers } });
 
-/** A server-rendered page. Its scripts and styles are inline, so the CSP allows only those. */
-export const html = (body: string, status = 200, extra?: Headers): Response => {
+/**
+ * A server-rendered page. Its scripts and styles are inline, so the CSP allows
+ * only those. Browsers apply `form-action` to the redirect after a form post
+ * too, so a form that redirects elsewhere (the OAuth consent page) must list
+ * that origin in `formTargets`.
+ */
+export const html = (body: string, status = 200, extra?: Headers, formTargets: string[] = []): Response => {
   const headers = new Headers({
     "content-type": "text/html; charset=utf-8",
     "cache-control": "no-store",
-    "content-security-policy":
-      "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    "content-security-policy": `default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; manifest-src 'self'; form-action ${["'self'", ...formTargets].join(" ")}; frame-ancestors 'none'; base-uri 'none'`,
     "referrer-policy": "same-origin",
     "x-content-type-options": "nosniff"
   });

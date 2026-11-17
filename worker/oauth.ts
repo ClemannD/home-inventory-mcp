@@ -21,6 +21,20 @@ const errorPage = (env: Env, e: unknown): Response => {
   return html(messagePage(appName(env), "Can't connect", "Something went wrong. Start the connection again from the app."), 500);
 };
 
+/**
+ * The redirect URI's origin, for the consent page's CSP form-action. The
+ * library has already checked the URI against the client's registration.
+ * Private-use schemes (com.example.app:/cb) are listed by scheme.
+ */
+const redirectOrigins = (redirectUri: string): string[] => {
+  try {
+    const url = new URL(redirectUri);
+    return [url.protocol === "http:" || url.protocol === "https:" ? url.origin : url.protocol];
+  } catch {
+    return [];
+  }
+};
+
 const withHeaders = (response: Response, headers: Headers): Response => {
   headers.forEach((value, key) => response.headers.append(key, value));
   return response;
@@ -46,7 +60,8 @@ export const handleAuthorize = async (request: Request, env: Env, url: URL): Pro
           userEmail: session.user.email
         }),
         200,
-        tx.headers
+        tx.headers,
+        redirectOrigins(consent.redirectUri)
       );
     } catch (e) {
       return errorPage(env, e);
